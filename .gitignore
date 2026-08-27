@@ -1,0 +1,22 @@
+# Environment & Secrets
+.env
+*.env
+*.pem
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# PowerShell
+*__history.ps1
+*.log
+*.csv
+
+# VS Code / OS junk
+.vscode/*
+!.vscode/settings.json
+Thumbs.db
+Desktop.ini
