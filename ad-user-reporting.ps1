@@ -170,6 +170,9 @@ function PasswordExpirationReport {
         Pause
     }
     elseif ($output -eq 2){
+        $data | Out-GridView -Title "Password Expiration Report"
+    }
+    elseif ($output -eq 3){
         $path = Get-SavePath
         $data | Export-Csv $path -NoTypeInformation
     }
