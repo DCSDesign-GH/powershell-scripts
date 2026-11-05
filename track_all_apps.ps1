@@ -1,5 +1,67 @@
-$vApps = @{ 'Photoshop' = 'Photoshop.exe'; 'InDesign' = 'InDesign.exe'; 'Illustrator' = 'Illustrator.exe'; 'Lightroom' = 'Lightroom.exe'; 'Media Encoder' = 'Adobe Media Encoder.exe'; 'Premiere Pro' = 'Adobe Premiere Pro.exe'; 'Premiere Rush' = 'Adobe Premiere Rush.exe'; 'SketchUp' = 'SketchUp.exe'; 'Bluebeam' = 'Revu.exe'; 'AutoCAD' = 'acad.exe'; 'Navisworks' = 'Navisworks.exe'; 'ReCap' = 'ReCap.exe'; 'ReCap Photo' = 'ReCapPhoto.exe'; 'Enscape' = 'Enscape.exe'; 'Revit' = 'revit.exe'; 'Lumion' = 'Lumion.exe' }
-$sApps = @{ 'Acrobat Pro' = 'Acrobat.exe'; 'D5 Render' = 'D5Render.exe'; 'D5 Launcher' = 'D5_Launcher.exe'; 'Camtasia' = 'CamtasiaStudio.exe'; 'Newforma Project Center' = 'Newforma.exe'; 'Microsoft Edge' = 'msedge.exe'; 'Firefox' = 'firefox.exe'; 'Chrome' = 'chrome.exe'; 'Brave' = 'brave.exe'; '7-Zip' = '7zFM.exe'; 'Bulk Rename Utility' = 'BRU.exe'; 'GIMP 3' = 'gimp-3.exe'; 'Google Earth' = 'googleearth.exe'; 'SonicWall NetExtender' = 'NetExtender.exe'; 'MS Project' = 'WINPROJ.EXE' }
+# --- CONFIGURATION ---
+
+# 1. Apps to track WITH Version/Year
+$versionTrackedApps = [ordered]@{
+    "Photoshop"       = "Photoshop.exe"
+    "InDesign"        = "InDesign.exe"
+    "Illustrator"     = "Illustrator.exe"
+    "Lightroom"       = "Lightroom.exe"
+    "Media Encoder"   = "Adobe Media Encoder.exe"
+    "Premiere Pro"    = "Adobe Premiere Pro.exe"
+    "Premiere Rush"   = "Adobe Premiere Rush.exe"
+    "SketchUp"        = "SketchUp.exe"
+    "Bluebeam"        = "Revu.exe"
+    "AutoCAD"         = "acad.exe"
+    "Navisworks"      = "Navisworks.exe"
+    "ReCap"           = "ReCap.exe"
+    "ReCap Photo"     = "ReCapPhoto.exe"
+    "Enscape"         = "Enscape.exe"
+    "Revit"           = "revit.exe"
+    "Lumion"          = "Lumion.exe"
+    "Foxit PDF Editor" = "FoxitPDFEditor.exe"
+    "Foxit Reader" = "FoxitReader.exe"
+    "Foxit Phantom PDF" = "FoxitPhantomPDF.exe"
+    "Twinmotion for Revit" = "TwinmotionCookedEditor-Win64-Shipping.exe"
+}
+
+# 2. Apps to track WITHOUT Version (General utilities)
+$simpleApps = [ordered]@{
+    "Acrobat Pro"             = "Acrobat.exe"
+    "D5 Render"               = "D5Render.exe"
+    "D5 Launcher"             = "D5_Launcher.exe"
+    "Camtasia"                = "CamtasiaStudio.exe"
+    "Newforma Project Center" = "Newforma.exe"
+    "Newforma Contact Directory" = "NewformaContactDirectory.exe"
+    "Newforma Viewer" = "Viewer.exe"
+    "Microsoft Edge"          = "msedge.exe"
+    "Firefox"                 = "firefox.exe"
+    "Chrome"                  = "chrome.exe"
+    "Brave"                   = "brave.exe"
+    "7-Zip"                   = "7zFM.exe"
+    "Bulk Rename Utility"     = "BRU.exe"
+    "GIMP 3"                  = "gimp-3.exe"
+    "Google Earth"            = "googleearth.exe"
+    "SonicWall NetExtender"   = "NetExtender.exe"
+    "MS Project"              = "WINPROJ.EXE"
+    "Notepad++" = "notepad++.exe"
+    "Picasa" = "Picasa3.exe"
+    "MS Photos" = "Photos.exe"
+}
+
+$scriptPath = "C:\ProgramData\PDQ_Trackers\track_all_apps.ps1"
+$taskName   = "PDQ_MultiApp_UsageTracker"
+
+# Create folder structure
+New-Item -ItemType Directory -Force -Path "C:\ProgramData\PDQ_Trackers" | Out-Null
+
+# Construct hashtable strings for the deployed script
+$vAppsStr = ($versionTrackedApps.GetEnumerator() | ForEach-Object { "'$($_.Key)' = '$($_.Value)'" }) -join '; '
+$sAppsStr = ($simpleApps.GetEnumerator() | ForEach-Object { "'$($_.Key)' = '$($_.Value)'" }) -join '; '
+
+# Template using Single-Quoted Here-String (@' ... '@)
+$template = @'
+$vApps = @{ __VAPPS__ }
+$sApps = @{ __SAPPS__ }
 $regBase = "HKLM:\SOFTWARE\CustomSoftwareTracker"
 $logFile = "C:\ProgramData\PDQ_Trackers\tracker_execution.log"
 
@@ -248,3 +310,20 @@ if ($backupFolderPath) {
 }
 
 Log-Tracker "--- App Usage Tracker Finished ---"
+'@
+
+# Inject hashtables safely into template
+$scriptContent = $template.Replace('__VAPPS__', $vAppsStr).Replace('__SAPPS__', $sAppsStr)
+
+Set-Content -Path $scriptPath -Value $scriptContent -Force
+
+# Define Action, Trigger, and Power Settings
+$action   = New-ScheduledTaskAction -Execute "PowerShell.exe" -Argument "-ExecutionPolicy Bypass -WindowStyle Hidden -File `"$scriptPath`""
+$trigger  = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 5)
+$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+
+# Register Task
+Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -User "NT AUTHORITY\SYSTEM" -RunLevel Highest -Force
+
+# Trigger immediate execution of the deployed script
+& "PowerShell.exe" -ExecutionPolicy Bypass -WindowStyle Hidden -File "$scriptPath"
